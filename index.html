@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Senior Records → Cards</title>
+<style>
+  :root{
+    --ink:#111827; --muted:#6B7280; --line:#dfe4ea;
+    --header:#b9c0c9; --headerText:#111827; --bg:#f7f8fa; --card:#ffffff;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial}
+
+  .wrap{max-width:1000px; margin:24px auto; padding:0 16px}
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:16px;
+    margin:16px 0 28px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.04);
+    page-break-inside: avoid;
+  }
+
+  .name {
+    font-size:20px; font-weight:800; margin:2px 0 12px;
+  }
+  .subtle { color: var(--muted); font-size: 12px; }
+
+  table{
+    width:100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  th, td{
+    border:1px solid var(--line);
+    padding:10px 12px;
+    vertical-align:top;
+    word-wrap:break-word;
+  }
+  th{
+    background:var(--header);
+    color:var(--headerText);
+    font-weight:700;
+    text-align:left;
+  }
+  /* Make columns look like the screenshot (4 even columns) */
+  colgroup col { width: 25%; }
+
+  /* Print friendly */
+  @media print{
+    body{ background:#fff }
+    .wrap{ max-width:none; padding:0 }
+    .card{ box-shadow:none; margin:0 0 18px; border-color:#bbb }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 style="margin:10px 0 6px;">Senior Records</h1>
+  <div class="subtle">Auto-generated from <code>Seniors_BSR.json</code></div>
+
+  <div id="out"></div>
+</div>
+
+<script>
+(async function(){
+  // Helper: safe text
+  const get = (obj, key) => (obj?.[key] ?? "").toString().trim();
+
+  // If the file name has a space, use %20
+  const url = "Seniors_BSR.json";
+
+  let json;
+  try{
+    const res = await fetch(url, { cache: "no-store" });
+    if(!res.ok) throw new Error("Fetch failed");
+    json = await res.json();
+  }catch(e){
+    document.getElementById('out').innerHTML =
+      `<div class="card"><strong>Could not load</strong> <code>${url}</code>. Make sure it is next to index.html.</div>`;
+    return;
+  }
+
+  const rows = Array.isArray(json?.data) ? json.data : [];
+  const out = document.getElementById('out');
+
+  // Map keys so you can change field names once here if needed
+  const F = {
+    last: "Student Last Name",
+    first: "Student First Name",
+    email: "Student Email",
+    phone: "Student Phone",
+    parentName: "Parent Name",
+    parentEmail: "Parent Email",
+    parentPhone: "Parent Phone",
+    lang: "Preferred Language",
+    street: "Mailing Street Address",
+    city: "Mailing City",
+    state: "Mailing State/Province",
+    zip: "Mailing Zip/Postal Code",
+    school: "School"
+  };
+
+  function makeRow(headers, values) {
+    const trH = document.createElement('tr');
+    headers.forEach(h=>{
+      const th = document.createElement('th');
+      th.textContent = h;
+      trH.appendChild(th);
+    });
+
+    const trV = document.createElement('tr');
+    values.forEach(v=>{
+      const td = document.createElement('td');
+      if (v) td.textContent = v;
+      trV.appendChild(td);
+    });
+
+    return [trH, trV];
+  }
+
+  rows.forEach((r, i)=>{
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    const title = document.createElement('div');
+    title.className = 'name';
+    const fullName = [get(r, F.first), get(r, F.last)].filter(Boolean).join(' ');
+    title.textContent = fullName || `Student ${i+1}`;
+    card.appendChild(title);
+
+    const table = document.createElement('table');
+    const colgroup = document.createElement('colgroup');
+    for(let i=0;i<4;i++) colgroup.appendChild(document.createElement('col'));
+    table.appendChild(colgroup);
+
+    // 1) Student row
+    let [h1, v1] = makeRow(
+      ["Student Last Name","Student First Name","Student Email","Student Phone"],
+      [get(r,F.last), get(r,F.first), get(r,F.email), get(r,F.phone)]
+    );
+    table.append(h1, v1);
+
+    // 2) Parent row
+    let [h2, v2] = makeRow(
+      ["Parent Name","Parent Email","Parent Phone","Preferred Language"],
+      [get(r,F.parentName), get(r,F.parentEmail), get(r,F.parentPhone), get(r,F.lang)]
+    );
+    table.append(h2, v2);
+
+    // 3) Mailing row
+    let [h3, v3] = makeRow(
+      ["Mailing Street","Mailing City","Mailing State","Mailing Zip"],
+      [get(r,F.street), get(r,F.city), get(r,F.state), get(r,F.zip)]
+    );
+    table.append(h3, v3);
+
+    // 4) School row (like screenshot—header only in first column)
+    const trH4 = document.createElement('tr');
+    const thSchool = document.createElement('th');
+    thSchool.textContent = "School";
+    trH4.appendChild(thSchool);
+    // three empty headers to keep grid shape
+    for(let i=0;i<3;i++){ trH4.appendChild(document.createElement('th')); }
+
+    const trV4 = document.createElement('tr');
+    const tdSchool = document.createElement('td');
+    tdSchool.textContent = get(r,F.school);
+    trV4.appendChild(tdSchool);
+    for(let i=0;i<3;i++){ trV4.appendChild(document.createElement('td')); }
+
+    table.append(trH4, trV4);
+
+    card.appendChild(table);
+    out.appendChild(card);
+  });
+
+  if(rows.length === 0){
+    out.innerHTML = `<div class="card">No student records found in <code>Seniors_BSR.json</code>.</div>`;
+  }
+})();
+</script>
+</body>
+</html>
